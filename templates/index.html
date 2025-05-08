@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Background Remover App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+    body {
+        font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        margin: 0;
+        min-height: 100vh;
+    }
+    .container {
+        max-width: 1000px;
+        margin: 40px auto;
+        background: #91d6e6;
+        border-radius: 5px;
+        box-shadow: 0 8px 32px rgb(0, 0, 0);
+        padding: 32px 24px 24px 24px;
+    }
+    h1 {
+        text-align: center;
+        font-weight: 700;
+        color: #2d3a4b;
+        margin-bottom: 24px;
+        letter-spacing: 1px;
+    }
+    #upload-form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    #image-input {
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: #f9fafb;
+        font-size: 16px;
+        width: 100%;
+        max-width: 320px;
+    }
+    .upload-label {
+        font-size: 15px;
+        color: #555;
+        margin-bottom: 4px;
+    }
+    .drop-area {
+        border: 2px dashed #b0b8c1;
+        border-radius: 10px;
+        padding: 24px;
+        text-align: center;
+        color: #7a869a;
+        background: #f7fafd;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .drop-area.dragover {
+        border-color: #4f8cff;
+        background: #eaf3ff;
+    }
+    button, .action-btn {
+        background: linear-gradient(90deg, #4f8cff 0%, #38b6ff 100%);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 22px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 0 6px;
+        box-shadow: 0 2px 8px rgba(79,140,255,0.08);
+        transition: background 0.2s, box-shadow 0.2s;
+    }
+    button:hover, .action-btn:hover {
+        background: linear-gradient(90deg, #030946 0%, #0447c4 100%);
+        box-shadow: 0 4px 16px rgba(79,140,255,0.16);
+    }
+    .actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .image-comparison {
+        position: relative;
+        width: 100%;
+        max-width: 300px;
+        height: 300px;
+        margin: 0 auto;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        background: #f3f3f3;
+    }
+    .image-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        max-width: 300px;
+        max-height: 300px;
+    }
+    .comparison-item {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .comparison-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+        background: none;
+        z-index: 2;
+        position: relative;
+    }
+    .before-image {
+        z-index: 2;
+        clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%);
+        transition: clip-path 0.1s ease-out;
+        background: none;
+    }
+    .after-image {
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+        /* Checkerboard pattern for transparency */
+        background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0% 0%/32px 32px;
+    }
+    .comparison-slider {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 4px;
+        height: 100%;
+        background: #fff;
+        transform: translateX(-50%);
+        z-index: 3;
+        cursor: ew-resize;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        box-shadow: 0 0 8px rgba(0,0,0,0.08);
+    }
+    .slider-handle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 32px;
+        height: 32px;
+        background: #4f8cff;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        display: flex;
+        align-items: centert;
+        justify-content: center;
+        border: 3px solid #fff;
+    }
+    .slider-handle::before,
+    .slider-handle::after {
+        display: none;
+    }
+    .loading-spinner {
+        display: none;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+    }
+    .loading-spinner.active {
+        display: block;
+    }
+    .lds-dual-ring {
+        display: inline-block;
+        width: 48px;
+        height: 48px;
+    }
+    .lds-dual-ring:after {
+        content: " ";
+        display: block;
+        width: 40px;
+        height: 40px;
+        margin: 4px;
+        border-radius: 50%;
+        border: 4px solid #4f8cff;
+        border-color: #4f8cff transparent #38b6ff transparent;
+        animation: lds-dual-ring 1.2s linear infinite;
+    }
+    @keyframes lds-dual-ring {
+        0% { transform: rotate(0deg);}
+        100% { transform: rotate(360deg);}
+    }
+    @media (max-width: 500px) {
+        .container {
+            padding: 10px 2vw;
+        }
+        .image-comparison, .image-wrapper {
+            max-width: 98vw;
+            height: 60vw;
+            min-height: 220px;
+            max-height: 80vw;
+        }
+    }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Background Remover</h1>
+    <form id="upload-form">
+        <div class="drop-area" id="drop-area">
+            <span class="upload-label">Drag & drop an image here, or click to select</span>
+            <input type="file" id="image-input" accept="image/*" required style="display:none;">
+        </div>
+        <button type="submit" id="remove-btn">Remove Background</button>
+    </form>
+
+    <div id="progress-bar-container" style="display:none; width:100%; margin:10px 0;">
+        <div id="progress-bar" style="display:none; width:100%; margin:10px 0;">Uploaded</div>
+    </div>
+    <div id="comparison" class="image-comparison">
+        <div class="loading-spinner" id="spinner">
+            <div class="lds-dual-ring"></div>
+        </div>
+        <div class="image-wrapper">
+            <div class="comparison-item before-image" id="before-image">
+                <img src="" alt="Original" id="original-img">
+            </div>
+            <div class="comparison-item after-image" id="after-image">
+                <img src="" alt="No Background" id="result-img">
+            </div>
+            <div class="comparison-slider" id="slider">
+                <div class="slider-handle"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="actions" id="actions" style="display:none;">
+        <button type="button" class="action-btn" id="download-btn">Download Result</button>
+        <button type="button" class="action-btn" id="reset-btn">Reset</button>
+    </div>
+
+
+    
+</div>
+<script>
+const form = document.getElementById('upload-form');
+const imageInput = document.getElementById('image-input');
+const dropArea = document.getElementById('drop-area');
+const originalImg = document.getElementById('original-img');
+const resultImg = document.getElementById('result-img');
+const beforeImage = document.getElementById('before-image');
+const afterImage = document.getElementById('after-image');
+const comparison = document.getElementById('comparison');
+const slider = document.getElementById('slider');
+const sliderHandle = slider.querySelector('.slider-handle');
+const imageWrapper = document.querySelector('.image-wrapper');
+const spinner = document.getElementById('spinner');
+const downloadBtn = document.getElementById('download-btn');
+const resetBtn = document.getElementById('reset-btn');
+const actions = document.getElementById('actions');
+const removeBtn = document.getElementById('remove-btn');
+
+let resultBlob = null;
+
+// Drag & Drop support
+dropArea.addEventListener('click', () => imageInput.click());
+dropArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropArea.classList.add('dragover');
+});
+dropArea.addEventListener('dragleave', () => {
+    dropArea.classList.remove('dragover');
+});
+dropArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropArea.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        imageInput.files = e.dataTransfer.files;
+        triggerPreview();
+    }
+});
+imageInput.addEventListener('change', triggerPreview);
+
+function triggerPreview() {
+    const file = imageInput.files[0];
+    if (!file) return;
+    originalImg.src = URL.createObjectURL(file);
+    beforeImage.style.opacity = 1;
+    beforeImage.style.visibility = 'visible';
+    comparison.classList.add('has-images');
+    actions.style.display = 'none';
+    resultImg.src = '';
+    afterImage.style.opacity = 0;
+    afterImage.style.visibility = 'hidden';
+    resultBlob = null;
+}
+
+// Form submit
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = imageInput.files[0];
+    if (!file) return;
+    spinner.classList.add('active');
+    removeBtn.disabled = true;
+    document.getElementById('progress-bar-container').style.display = 'block';
+    const progressBar = document.getElementById('progress-bar');
+    progressBar.style.width = '0';
+    const formData = new FormData();
+    formData.append('image', file);
+    // Use XMLHttpRequest for progress
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/remove-bg', true);
+    xhr.responseType = 'blob';
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = percent + '%';
+        }
+    };
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            const blob = xhr.response;
+            resultBlob = blob;
+            resultImg.src = URL.createObjectURL(blob);
+            afterImage.style.opacity = 1;
+            afterImage.style.visibility = 'visible';
+            actions.style.display = 'flex';
+            // Animate slider from right to left to center over 2 seconds
+            slider.style.opacity = 1;
+            slider.style.visibility = 'visible';
+            const rect = imageWrapper.getBoundingClientRect();
+            let start = rect.width; // rightmost
+            let end = rect.width / 2; // center
+            let duration = 4000;
+            let startTime = null;
+            function animateSlider(timestamp) {
+                if (!startTime) startTime = timestamp;
+                let elapsed = timestamp - startTime;
+                let progress = Math.min(elapsed / duration, 1);
+                // Move from right to left (rightmost to leftmost)
+                let currentX;
+                if (progress < 0.5) {
+                    // First half: rightmost to leftmost
+                    currentX = start - (start - 0) * (progress * 2);
+                } else {
+                    // Second half: leftmost to center
+                    let localProgress = (progress - 0.5) * 2;
+                    currentX = 0 + (end - 0) * localProgress;
+                }
+                setSlider(rect.left + currentX);
+                if (progress < 1) {
+                    requestAnimationFrame(animateSlider);
+                } else {
+                    setSlider(rect.left + end);
+                }
+            }
+            requestAnimationFrame(animateSlider);
+        }
+        spinner.classList.remove('active');
+        removeBtn.disabled = false;
+        progressBar.style.width = '100%';
+        setTimeout(()=>{
+            document.getElementById('progress-bar-container').style.display = 'none';
+            progressBar.style.width = '0';
+        }, 600);
+    };
+    xhr.onerror = function() {
+        spinner.classList.remove('active');
+        removeBtn.disabled = false;
+        document.getElementById('progress-bar-container').style.display = 'none';
+        progressBar.style.width = '0';
+        alert('An error occurred during upload.');
+    };
+    xhr.send(formData);
+});
+
+// Download button
+downloadBtn.addEventListener('click', () => {
+    if (!resultBlob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(resultBlob);
+    a.download = 'background-removed.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+});
+
+// Reset button
+resetBtn.addEventListener('click', () => {
+    originalImg.src = '';
+    resultImg.src = '';
+    beforeImage.style.opacity = 0;
+    beforeImage.style.visibility = 'hidden';
+    afterImage.style.opacity = 0;
+    afterImage.style.visibility = 'hidden';
+    comparison.classList.remove('has-images');
+    actions.style.display = 'none';
+    imageInput.value = '';
+    resultBlob = null;
+    document.getElementById('progress-bar-container').style.display = 'none';
+    document.getElementById('progress-bar').style.width = '0';
+});
+
+// --- Slider functionality ---
+let isDragging = false;
+
+function setSlider(x) {
+    const rect = imageWrapper.getBoundingClientRect();
+    let offsetX = x - rect.left;
+    offsetX = Math.max(0, Math.min(offsetX, rect.width));
+    const percent = offsetX / rect.width * 100;
+    slider.style.left = percent + '%';
+    beforeImage.style.clipPath = `polygon(0 0, ${percent}% 0, ${percent}% 100%, 0 100%)`;
+}
+
+sliderHandle.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    document.body.style.userSelect = 'none';
+});
+window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    setSlider(e.clientX);
+});
+window.addEventListener('mouseup', () => {
+    isDragging = false;
+    document.body.style.userSelect = '';
+});
+// Touch support
+sliderHandle.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    document.body.style.userSelect = 'none';
+}, {passive: false});
+window.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    setSlider(e.touches[0].clientX);
+}, {passive: false});
+window.addEventListener('touchend', () => {
+    isDragging = false;
+    document.body.style.userSelect = '';
+});
+
+// Initialize slider in the middle when images are loaded
+function initSlider() {
+    slider.style.opacity = 1;
+    slider.style.visibility = 'visible';
+    setSlider(imageWrapper.getBoundingClientRect().left + imageWrapper.offsetWidth); // Set to rightmost
+}
+imageInput.addEventListener('change', () => {
+    setTimeout(initSlider, 500);
+});
+</script>
+</body>
+</html>
